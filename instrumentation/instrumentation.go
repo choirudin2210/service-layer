@@ -18,6 +18,7 @@ import (
 const runtimeSampleInterval = 60 * time.Second
 const rusageSampleInterval = 60 * time.Second
 
+// Instrumentation data store, holds metric data before flushing to a daemon
 type Instrumentation struct {
 	namespace     string
 	confHash      string
@@ -141,7 +142,7 @@ func (i *Instrumentation) StartRuntime() {
 	})
 }
 
-// StartRuntime starts a sampling loop that samples runtime statistics and feeds them into this instrumentation value.
+// StartRusage starts a sampling loop that samples runtime statistics and feeds them into this instrumentation value.
 // It spawns a background goroutine.
 func (i *Instrumentation) StartRusage() {
 	i.rusageOnce.Do(func() {
