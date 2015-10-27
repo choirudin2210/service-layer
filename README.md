@@ -1,9 +1,17 @@
-# Go service layer
+# Service Layer
 
-A common set of libraries for use in Go projects.
+- Source: https://github.com/hailocab/service-layer
+- Website: https://www.hailoapp.com
 
-The main job of this project is to provide self-configuring libraries for 3rd 
-party tools such as Cassandra, NSQ etc.
+Hailo service layer packages. Providing non functional requirement and
+shared infrastructure packages.
 
-See https://hailo.jira.com/wiki/display/Agile/2014/02/25/Shared+Code for details of how this library is managed.
+## Metadata
 
+### Licensing
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
+
+### Maintainers
+Please see [MAINTAINERS.md](MAINTAINERS.md)
