@@ -5,6 +5,7 @@ import (
 )
 
 var (
+	// BadCredentialsError an error that occurs when bad credentials are presented
 	BadCredentialsError error = errors.New("Bad credentials")
 	defaultScope        Scope
 	defaultS2S          *serviceToService // TODO delete when removing s2s rules
@@ -16,9 +17,9 @@ func init() {
 }
 
 // Invalidate wraps `Invalidate` against our default memcache-based `Cacher`
-func Invalidate(sessId string) error {
+func Invalidate(sessID string) error {
 	c := &memcacheCacher{}
-	return c.Invalidate(sessId)
+	return c.Invalidate(sessID)
 }
 
 // SetCurrentService defines the current service, as used for service-to-service auth
@@ -35,8 +36,8 @@ func Clean() {
 }
 
 // RecoverSession wraps defaultScope.RecoverSession
-func RecoverSession(sessId string) error {
-	return defaultScope.RecoverSession(sessId)
+func RecoverSession(sessID string) error {
+	return defaultScope.RecoverSession(sessID)
 }
 
 // RecoverService wraps defaultScope.RecoverService

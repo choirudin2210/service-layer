@@ -24,11 +24,17 @@ func init() {
 	}
 }
 
+// User is a basic type to auth against various services
 type User struct {
-	SessId, Mech, Device, Id     string
-	CreatedTs, ExpiryTs, RenewTs time.Time
-	Roles                        []string
-	Token, Sig, Data             []byte
+	SessId           string
+	Mech             string
+	Device           string
+	Id               string
+	CreatedTs        time.Time
+	ExpiryTs         time.Time
+	RenewTs          time.Time
+	Roles            []string
+	Token, Sig, Data []byte
 }
 
 // Options which should be used whenever construting a role glob

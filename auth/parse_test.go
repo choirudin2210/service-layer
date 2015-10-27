@@ -11,7 +11,7 @@ func TestTokenRoleOrderPreservation(t *testing.T) {
 	mockValidator()
 	defer unmockValidator()
 
-	sessId := "testSessionId"
+	sessID := "testSessionId"
 	token := "am=h2.PASSENGER:" +
 		"d=cli:" +
 		"id=123:" +
@@ -21,7 +21,7 @@ func TestTokenRoleOrderPreservation(t *testing.T) {
 		"r=CUSTOMER,H4BADMIN,AAAATHISSHOULDNOTBEFIRST,ADMIN.DRIVER.*,!ADMIN.DRIVER.LON,ADMIN.DRIVER.LON.ABC:" +
 		"sig=MTIz"
 
-	u, err := FromSessionToken(sessId, token)
+	u, err := FromSessionToken(sessID, token)
 	assert.NoError(t, err, "Unexpected error unmarshalling token")
 
 	assert.Equal(t, []string{

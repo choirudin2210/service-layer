@@ -26,39 +26,39 @@ func (c *testCache) Store(u *User) error {
 	return nil
 }
 
-func (c *testCache) Invalidate(sessId string) error {
+func (c *testCache) Invalidate(sessID string) error {
 	if c.failure {
 		return errors.New("Simulated failure")
 	}
-	c.invalidated[sessId] = true
-	if _, ok := c.users[sessId]; ok {
-		delete(c.users, sessId)
+	c.invalidated[sessID] = true
+	if _, ok := c.users[sessID]; ok {
+		delete(c.users, sessID)
 	}
 	return nil
 }
 
-func (c *testCache) Fetch(sessId string) (*User, bool, error) {
+func (c *testCache) Fetch(sessID string) (*User, bool, error) {
 	if c.failure {
 		return nil, false, errors.New("Simulated failure")
 	}
-	if c.invalidated[sessId] { // invalidated user cached - hit, but no user
+	if c.invalidated[sessID] { // invalidated user cached - hit, but no user
 		return nil, true, nil
 	}
-	if u, ok := c.users[sessId]; ok { // user found - hit with user
+	if u, ok := c.users[sessID]; ok { // user found - hit with user
 		return u, true, nil
 	}
 	return nil, false, nil // no user found in cache - cache miss
 }
 
-func (c *testCache) Purge(sessId string) error {
+func (c *testCache) Purge(sessID string) error {
 	if c.failure {
 		return errors.New("Simulated failure")
 	}
-	if _, ok := c.users[sessId]; ok {
-		delete(c.users, sessId)
+	if _, ok := c.users[sessID]; ok {
+		delete(c.users, sessID)
 	}
-	if _, ok := c.invalidated[sessId]; ok {
-		delete(c.invalidated, sessId)
+	if _, ok := c.invalidated[sessID]; ok {
+		delete(c.invalidated, sessID)
 	}
 	return nil
 }

@@ -32,7 +32,7 @@ const (
 type Scope interface {
 	RpcScope(scoper multiclient.Scoper) Scope
 	Clean() Scope
-	RecoverSession(sessId string) error
+	RecoverSession(sessID string) error
 	RecoverService(toEndpoint, fromService string) error
 	Auth(mech, device string, creds map[string]string) error
 	IsAuth() bool
@@ -95,16 +95,16 @@ func (s *realScope) Clean() Scope {
 	return s
 }
 
-// RecoverSession will try to turn a sessId into a valid user/token, if possible
+// RecoverSession will try to turn a sessID into a valid user/token, if possible
 // error will be non-nil if something goes wrong during this process - if we
-// can't find any valid user with this sessId that is *not* an error
+// can't find any valid user with this sessID that is *not* an error
 // If there is an error, the current state of the scope *will not have been changed*
 // If there is no error, then the state will be updated, either to the recovered
 // user *or* to nil, if no user was recovered
-func (s *realScope) RecoverSession(sessId string) error {
+func (s *realScope) RecoverSession(sessID string) error {
 	t := time.Now()
 
-	u, err := s.doRecoverSession(sessId)
+	u, err := s.doRecoverSession(sessID)
 	instTiming("auth.recoverSession", err, t)
 
 	if s.IsAuth() {
@@ -126,10 +126,10 @@ func (s *realScope) RecoverSession(sessId string) error {
 }
 
 // doRecoverSession is the meat and veg for RecoverSession
-func (s *realScope) doRecoverSession(sessId string) (*User, error) {
+func (s *realScope) doRecoverSession(sessID string) (*User, error) {
 	// Check cache; ignore errors (will have impact on service performance, but not functionality)
 	queryLogin := false
-	u, hit, err := s.userCache.Fetch(sessId)
+	u, hit, err := s.userCache.Fetch(sessID)
 	if err != nil {
 		log.Warnf("[Auth] Error fetching session from cache (will call login service): %v", err)
 		queryLogin = true
@@ -148,7 +148,7 @@ func (s *realScope) doRecoverSession(sessId string) (*User, error) {
 			Service:  loginService,
 			Endpoint: readSessionEndpoint,
 			Req: &sessreadproto.Request{
-				SessId: proto.String(sessId),
+				SessId: proto.String(sessID),
 			},
 			Rsp: rsp,
 		})
@@ -161,7 +161,7 @@ func (s *realScope) doRecoverSession(sessId string) (*User, error) {
 
 		// found a session?
 		if rsp.GetSessId() == "" && rsp.GetToken() == "" {
-			log.Debugf("[Auth] Session '%s' not found (not valid) when trying to recover from login service", sessId)
+			log.Debugf("[Auth] Session '%s' not found (not valid) when trying to recover from login service", sessID)
 			// @todo we could cache this (at least for a short time) to prevent repeated hammering of login service
 		} else {
 			u, err = FromSessionToken(rsp.GetSessId(), rsp.GetToken())
