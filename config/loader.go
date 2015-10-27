@@ -77,6 +77,7 @@ func (ldr *Loader) reload() {
 	}
 }
 
+// NewLoader creates a new config loader
 func NewLoader(c *Config, changes chan bool, r reader) *Loader {
 	ldr := &Loader{
 		c:       c,
