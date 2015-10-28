@@ -12,6 +12,7 @@ import (
 
 	log "github.com/cihub/seelog"
 	"github.com/gocql/gocql"
+	"github.com/hailocab/go-hostpool"
 
 	"github.com/hailocab/service-layer/config"
 	"github.com/hailocab/service-layer/dns"
@@ -124,6 +125,9 @@ func getKsConfig(ks string) (ksConfig, error) {
 	cc.RetryPolicy = &gocql.SimpleRetryPolicy{
 		NumRetries: c.retries,
 	}
+	cc.PoolConfig.HostSelectionPolicy = gocql.HostPoolHostPolicy(
+		hostpool.NewEpsilonGreedy(c.hosts, 5*time.Minute, &hostpool.LinearEpsilonValueCalculator{}),
+	)
 	c.cc = cc
 	return c, nil
 }

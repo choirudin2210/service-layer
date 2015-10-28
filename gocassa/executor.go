@@ -1,10 +1,12 @@
 package gocassa
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
 	"errors"
+
 	log "github.com/cihub/seelog"
 	"github.com/gocql/gocql"
 	"github.com/hailocab/gocassa"
@@ -23,7 +25,8 @@ type gocqlExecutor struct {
 	initialised bool
 	initMtx     sync.RWMutex
 	lastHash    uint32
-	pool        *gocqlConnectionPool
+	cfg         ksConfig
+	session     *gocql.Session
 }
 
 func (e *gocqlExecutor) init() error {
@@ -41,42 +44,69 @@ func (e *gocqlExecutor) init() error {
 		if err != nil {
 			return err
 		}
-		e.switchConfig(cfg)
+		err = e.switchConfig(cfg)
+		if err != nil {
+			return err
+		}
 		go e.watchConfig()
 		e.initialised = true
 	}
 	return nil
 }
 
-func (e *gocqlExecutor) switchConfig(newConfig ksConfig) {
+func (e *gocqlExecutor) switchConfig(newConfig ksConfig) error {
 	e.Lock()
 	defer e.Unlock()
-	if e.pool != nil {
-		e.pool.Close()
+	if e.session != nil {
+		e.session.Close()
 	}
-	e.pool = &gocqlConnectionPool{
-		Cfg: newConfig,
+	e.cfg = newConfig
+	session, err := e.cfg.cc.CreateSession()
+	if err != nil {
+		return err
 	}
-	e.pool.init()
+
+	e.session = session
 	e.lastHash = newConfig.hash()
-	log.Infof("[Cassandra:%s] Switched config to: %s", e.ks, newConfig.String())
+
+	return nil
 }
 
 func (e *gocqlExecutor) watchConfig() {
-	for _ = range config.SubscribeChanges() {
-		e.RLock()
-		ks := e.ks
-		lastHash := e.lastHash
-		e.RUnlock()
-		if cfg, err := getKsConfig(ks); err != nil {
-			log.Errorf("[Cassandra:%s] Error getting new config: %s", ks, err.Error())
-		} else if cfg.hash() != lastHash {
-			log.Infof("[Cassandra:%s] Config changed; invalidating connection pool", ks)
-			e.switchConfig(cfg)
-		} else {
-			log.Debugf("[Cassandra:%s] Config changed but not invalidating connection pool (hash %d unchanged)", e.ks,
-				e.lastHash)
+	configCh := config.SubscribeChanges()
+	retryCh := make(chan struct{})
+
+	for {
+		select {
+		case <-configCh:
+			e.reloadSession(retryCh)
+		case <-retryCh:
+			e.reloadSession(retryCh)
 		}
+	}
+}
+
+func (e *gocqlExecutor) reloadSession(retryCh chan struct{}) {
+	e.RLock()
+	ks := e.ks
+	lastHash := e.lastHash
+	e.RUnlock()
+
+	if cfg, err := getKsConfig(ks); err != nil {
+		log.Errorf("[Cassandra:%s] Error getting new config: %s", ks, err.Error())
+	} else if cfg.hash() != lastHash {
+		log.Infof("[Cassandra:%s] Config changed; invalidating connection pool", ks)
+
+		if err := e.switchConfig(cfg); err != nil {
+			log.Errorf("[Cassandra:%s] Error creating session, retrying after 1s delay: %s", ks, err)
+			time.Sleep(time.Second)
+			retryCh <- struct{}{}
+		}
+
+		log.Infof("[Cassandra:%s] Switched config to: %s", e.ks, cfg.String())
+	} else {
+		log.Debugf("[Cassandra:%s] Config changed but not invalidating connection pool (hash %d unchanged)", e.ks,
+			e.lastHash)
 	}
 }
 
@@ -87,31 +117,22 @@ func (e *gocqlExecutor) Query(stmt string, params ...interface{}) ([]map[string]
 
 	start := time.Now()
 	e.RLock()
-	pool, ks := e.pool, e.ks
+	session, ks := e.session, e.ks
 	e.RUnlock()
 
-	// Create a singlePool to vend an appropriate connection
-	conn := pool.checkout()
-	sp := singlePool{conn.conn}
-	spCc := *(pool.Cfg.cc)
-	spCc.ConnPoolType = sp.dummyNewPoolFunc() // Blergh
-	sess, err := gocql.NewSession(spCc)
-	if err != nil {
-		pool.checkin(conn, err)
-		return nil, err
+	if session == nil {
+		return nil, fmt.Errorf("No open session")
 	}
-	sess.SetConsistency(pool.Cfg.cc.Consistency)
 
-	iter := sess.Query(stmt, params...).Iter()
+	iter := session.Query(stmt, params...).Iter()
 	results := []map[string]interface{}{}
 	result := map[string]interface{}{}
 	for iter.MapScan(result) {
 		results = append(results, result)
 		result = map[string]interface{}{}
 	}
-	err = iter.Close()
+	err := iter.Close()
 	log.Tracef("[Cassandra:%s] Query took %s: %s", ks, time.Since(start).String(), stmt)
-	pool.checkin(conn, err)
 	return results, err
 }
 
@@ -122,24 +143,15 @@ func (e *gocqlExecutor) Execute(stmt string, params ...interface{}) error {
 
 	start := time.Now()
 	e.RLock()
-	pool, ks := e.pool, e.ks
+	session, ks := e.session, e.ks
 	e.RUnlock()
 
-	// Create a singlePool to vend an appropriate connection
-	conn := pool.checkout()
-	sp := singlePool{conn.conn}
-	spCc := *(pool.Cfg.cc)
-	spCc.ConnPoolType = sp.dummyNewPoolFunc() // Blergh
-	sess, err := gocql.NewSession(spCc)
-	if err != nil {
-		pool.checkin(conn, err)
-		return err
+	if session == nil {
+		return fmt.Errorf("No open session")
 	}
-	sess.SetConsistency(pool.Cfg.cc.Consistency)
 
-	err = sess.Query(stmt, params...).Exec()
+	err := session.Query(stmt, params...).Exec()
 	log.Tracef("[Cassandra:%s] Execute took %s: %s", ks, time.Since(start).String(), stmt)
-	pool.checkin(conn, err)
 	return err
 }
 
