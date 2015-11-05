@@ -111,6 +111,10 @@ func (e *gocqlExecutor) reloadSession(retryCh chan struct{}) {
 }
 
 func (e *gocqlExecutor) Query(stmt string, params ...interface{}) ([]map[string]interface{}, error) {
+	return e.QueryWithOptions(gocassa.Options{}, stmt, params...)
+}
+
+func (e *gocqlExecutor) QueryWithOptions(opts gocassa.Options, stmt string, params ...interface{}) ([]map[string]interface{}, error) {
 	if err := e.init(); err != nil {
 		return nil, err
 	}
@@ -124,7 +128,12 @@ func (e *gocqlExecutor) Query(stmt string, params ...interface{}) ([]map[string]
 		return nil, fmt.Errorf("No open session")
 	}
 
-	iter := session.Query(stmt, params...).Iter()
+	q := session.Query(stmt, params...)
+	if opts.Consistency != nil {
+		q = q.Consistency(*opts.Consistency)
+	}
+
+	iter := q.Iter()
 	results := []map[string]interface{}{}
 	result := map[string]interface{}{}
 	for iter.MapScan(result) {
@@ -137,6 +146,10 @@ func (e *gocqlExecutor) Query(stmt string, params ...interface{}) ([]map[string]
 }
 
 func (e *gocqlExecutor) Execute(stmt string, params ...interface{}) error {
+	return e.ExecuteWithOptions(gocassa.Options{}, stmt, params...)
+}
+
+func (e *gocqlExecutor) ExecuteWithOptions(opts gocassa.Options, stmt string, params ...interface{}) error {
 	if err := e.init(); err != nil {
 		return err
 	}
@@ -150,7 +163,12 @@ func (e *gocqlExecutor) Execute(stmt string, params ...interface{}) error {
 		return fmt.Errorf("No open session")
 	}
 
-	err := session.Query(stmt, params...).Exec()
+	q := session.Query(stmt, params...)
+	if opts.Consistency != nil {
+		q = q.Consistency(*opts.Consistency)
+	}
+
+	err := q.Exec()
 	log.Tracef("[Cassandra:%s] Execute took %s: %s", ks, time.Since(start).String(), stmt)
 	return err
 }
