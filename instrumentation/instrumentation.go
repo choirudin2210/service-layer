@@ -177,7 +177,7 @@ func (i *Instrumentation) Counter(sampleRate float32, bucket string, n ...int) {
 	i.mtx.RLock()
 	defer i.mtx.RUnlock()
 	if i.statsd != nil {
-		i.statsd.Counter(sampleRate, fmt.Sprintf("%s.%s", i.namespace, bucket), n...)
+		go i.statsd.Counter(sampleRate, fmt.Sprintf("%s.%s", i.namespace, bucket), n...)
 	}
 	if c, exists := i.savedCounters[bucket]; exists {
 		for _, v := range n {
@@ -192,7 +192,7 @@ func (i *Instrumentation) Timing(sampleRate float32, bucket string, d ...time.Du
 	i.mtx.RLock()
 	defer i.mtx.RUnlock()
 	if i.statsd != nil {
-		i.statsd.Timing(sampleRate, fmt.Sprintf("%s.%s", i.namespace, bucket), d...)
+		go i.statsd.Timing(sampleRate, fmt.Sprintf("%s.%s", i.namespace, bucket), d...)
 	}
 	if c, exists := i.savedTimers[bucket]; exists {
 		for _, v := range d {
@@ -212,7 +212,7 @@ func (i *Instrumentation) Gauge(sampleRate float32, bucket string, n ...int) {
 		for i, v := range n {
 			strs[i] = strconv.Itoa(v)
 		}
-		i.statsd.Gauge(sampleRate, fmt.Sprintf("%s.%s", i.namespace, bucket), strs...)
+		go i.statsd.Gauge(sampleRate, fmt.Sprintf("%s.%s", i.namespace, bucket), strs...)
 	}
 	if g, exists := i.savedGauges[bucket]; exists {
 		for _, v := range n {
