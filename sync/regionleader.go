@@ -7,6 +7,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cenkalti/backoff"
+
 	log "github.com/cihub/seelog"
 
 	inst "github.com/hailocab/service-layer/instrumentation"
@@ -16,8 +18,9 @@ import (
 )
 
 const (
-	regionLeaderPath = "/sync/regionleader/%v"
-	cleanupDelay     = 20 * time.Millisecond
+	regionLeaderPath       = "/sync/regionleader/%v"
+	cleanupDelay           = 20 * time.Millisecond
+	backoffInitialInterval = 50 * time.Millisecond
 )
 
 var (
@@ -106,19 +109,24 @@ func RegionLeader(id string) Leader {
 	var lockNode string
 
 	for {
-		// create our lock node -- retry until this is done
-		for {
-			var err error
+		// create our lock node -- retry until this is done, use exponential backoff
+		// to add some delay between attempts
+		b := backoff.NewExponentialBackOff()
+		b.InitialInterval = backoffInitialInterval
+		b.MaxElapsedTime = 0 // Never stop retrying (max interval of 60s)
+
+		backoff.RetryNotify(func() (err error) {
+			log.Infof("[Sync:RegionLeader] Attepting to create ephemeral lock node for leadership election")
 			lockNode, err = zookeeper.CreateProtectedEphemeralSequential(prefix, []byte{}, gozk.WorldACL(gozk.PermAll))
+
+			return
+		}, b, func(err error, d time.Duration) {
 			if err == gozk.ErrNoNode {
 				createParents(path)
-			} else if err == nil {
-				break
-			} else {
-				log.Warnf("[Sync:RegionLeader] ZooKeeper error creating ephemeral lock node for leadership election: %s",
-					err.Error())
+			} else if err != nil {
+				log.Warnf("[Sync:RegionLeader] ZooKeeper error creating ephemeral lock node for leadership election: %s. Waiting %s", err, d)
 			}
-		}
+		})
 
 		err := waitForWinner(path, lockNode)
 		if err != nil {
