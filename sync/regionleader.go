@@ -21,6 +21,7 @@ const (
 	regionLeaderPath       = "/sync/regionleader/%v"
 	cleanupDelay           = 20 * time.Millisecond
 	backoffInitialInterval = 50 * time.Millisecond
+	backoffMaxInterval     = 10 * time.Minute
 )
 
 var (
@@ -113,7 +114,8 @@ func RegionLeader(id string) Leader {
 		// to add some delay between attempts
 		b := backoff.NewExponentialBackOff()
 		b.InitialInterval = backoffInitialInterval
-		b.MaxElapsedTime = 0 // Never stop retrying (max interval of 60s)
+		b.MaxInterval = backoffMaxInterval
+		b.MaxElapsedTime = 0 // Never stop retrying
 
 		backoff.RetryNotify(func() (err error) {
 			log.Infof("[Sync:RegionLeader] Attepting to create ephemeral lock node for leadership election")
