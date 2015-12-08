@@ -2,7 +2,7 @@ package connhealthcheck
 
 import (
 	"fmt"
-	"github.com/hailocab/go-hailo-lib/proc"
+	"github.com/hailocab/platform-layer/proc"
 	"github.com/hailocab/service-layer/healthcheck"
 )
 
